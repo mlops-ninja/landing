@@ -6,13 +6,22 @@ import { Astronav, MenuItems, MenuIcon } from "astro-navbar";
 
 const menuitems = [
   {
-    title: "Features",
-    path: "#",
+    title: "Lifecycle",
+    path: "/lifecycle",
     children: [
-      { title: "Action", path: "/" },
-      { title: "Another action", path: "#" },
-      { title: "Dropdown Submenu", path: "#" },
-      { title: "404 Page", path: "/404" },
+      { title: "Overview", path: "/lifecycle" },
+      { hr: true, color: "border-sky-500" },
+      { title: "EDA", path: "/lifecycle/eda" },
+      { title: "Data Prep", path: "/lifecycle/data-prep" },
+      { title: "Develop", path: "/lifecycle/develop" },
+      { title: "(Re)Train", path: "/lifecycle/train" },
+      { title: "Deploy", path: "/lifecycle/deploy" },
+      { title: "Inference", path: "/lifecycle/inference" },
+      { title: "Monitor", path: "/lifecycle/monitor" },
+      { hr: true, color: "border-fuchsia-500" },
+      { title: "ML", path: "/lifecycle/ml" },
+      { title: "Ops", path: "/lifecycle/ops" },
+      // { title: "404 Page", path: "/404" },
     ],
   },
   // {

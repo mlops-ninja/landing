@@ -1,5 +1,6 @@
 ---
 import { Dropdown as DropdownContainer, DropdownItems } from "astro-navbar";
+import { effect } from "astro:schema";
 const { title, lastItem, children } = Astro.props;
 ---
 
@@ -32,13 +33,19 @@ const { title, lastItem, children } = Astro.props;
         <div
           class="px-3 lg:py-2 lg:bg-white lg:rounded-md lg:shadow lg:border flex flex-col">
           {
-            children.map((item) => (
-              <a
-                href={item.path}
-                class="py-1 text-gray-600 hover:text-gray-900">
-                {item.title}
-              </a>
-            ))
+            children.map((item) => {
+              if (item.hr) {
+                return <hr class:list={["my-2", item.color]} />;
+              } else {
+                return (
+                  <a
+                    href={item.path}
+                    class="py-1 text-gray-600 hover:text-gray-900">
+                    {item.title}
+                  </a>
+                );
+              }
+            })
           }
         </div>
       </div>

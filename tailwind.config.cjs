@@ -6,8 +6,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: [
-          "Space Grotesk",
-          "Fira Sans",
+          "Space Grotesk Variable",
           "Bricolage Grotesque Variable",
           "Inter Variable",
           "Inter",
