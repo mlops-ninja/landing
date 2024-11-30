@@ -1,0 +1,58 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "@layouts/Layout.astro";
+import Container from "@components/container.astro";
+import { getEntries } from "astro:content";
+import { Icon } from "astro-icon/components";
+
+// Generate a new path for every collection entry
+export async function getStaticPaths() {
+  const lifecycleEntries = await getCollection("lifecycle");
+
+  return Promise.all(lifecycleEntries.map(async (entry) => { 
+    const sections = await getEntries(entry.data.sections);
+    return { 
+      params: { sector: entry.slug },
+      props: { entry, sections },
+    }
+  }));
+}
+
+// Get the entry directly from the prop on render
+const { entry, sections } = Astro.props;
+const { Content } = await entry.render();
+
+console.log(entry);
+console.log(sections);
+---
+
+<Layout title={entry.data.title}>
+  <Container>
+  <div class="mt-16 md:mt-0">
+    <h2 class="text-4xl lg:text-5xl font-bold lg:tracking-tight">
+      {entry.data.title}
+    </h2>
+    <p class="text-lg mt-4 text-slate-600">
+      {entry.data.description}
+    </p>
+  </div>
+
+  <div class="grid sm:grid-cols-2 md:grid-cols-3 mt-16 gap-16">
+    {
+      sections.map((item) => (
+        <div class="flex gap-4 items-start">
+          <div class="mt-1 bg-black rounded-full  p-2 w-8 h-8 shrink-0">
+            <Icon class="text-white" name={item.data.icon} />
+          </div>
+          <div>
+            <h3 class="font-semibold text-lg">{item.data.title}</h3>{" "}
+            <p class="text-slate-500 mt-2 leading-relaxed">
+              {item.data.description}
+            </p>
+          </div>
+        </div>
+      ))
+    }
+    </div>
+  </Container>
+</Layout>

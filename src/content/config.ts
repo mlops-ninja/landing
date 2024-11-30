@@ -1,15 +1,15 @@
 // 1. Import utilities from `astro:content`
-import { z, defineCollection } from 'astro:content';
+import { z, defineCollection, reference } from 'astro:content';
 
 // 2. Define your collection(s)
-const blogCollection = defineCollection({
-  schema: z.object({
+const blog = defineCollection({
+  schema: ({ image }) => z.object({
     draft: z.boolean(),
     title: z.string(),
     snippet: z.string(),
     image: z.object({
-      src: z.string(),
-      alt: z.string(),
+      src: z.union([z.string(), image()]),
+      alt: z.union([z.string(), image()]),
     }),
     publishDate: z.string().transform(str => new Date(str)),
     author: z.string().default('Astroship'),
@@ -18,30 +18,43 @@ const blogCollection = defineCollection({
   }),
 });
 
-const teamCollection = defineCollection({
-  schema: z.object({
+const team = defineCollection({
+  schema: ({image}) =>  z.object({
     draft: z.boolean(),
     name: z.string(),
     title: z.string(),
     avatar: z.object({
-      src: z.string(),
+      src: image(),
       alt: z.string(),
     }),
+    description: z.string().optional(),
     publishDate: z.string().transform(str => new Date(str)),
   }),
 });
 
 
-const lifecycleCollection = defineCollection({
+const lifecycle = defineCollection({
   schema: z.object({
-    tags: z.array(z.string()),
+    title: z.string(),
+    description: z.string(),
+    icon: z.string(),
+    sections: z.array(reference('section')),
+  }),
+});
+
+const section = defineCollection({
+  schema: z.object({
+    title: z.string(),
+    description: z.string(),
+    icon: z.string(),
   }),
 });
 
 // 3. Export a single `collections` object to register your collection(s)
 //    This key should match your collection directory name in "src/content"
 export const collections = {
-  'blog': blogCollection,
-  'team': teamCollection,
-  'lifecycle': lifecycleCollection,
+  'blog': blog,
+  'team': team,
+  'lifecycle': lifecycle,
+  'section': section,
 };
