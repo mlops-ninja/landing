@@ -6,6 +6,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: [
+          "Podkova Variable",
           "Space Grotesk Variable",
           "Bricolage Grotesque Variable",
           "Inter Variable",
