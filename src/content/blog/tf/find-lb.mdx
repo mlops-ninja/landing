@@ -1,0 +1,19 @@
+How to find Load Balancer
+
+locals {
+  load_balancers = {
+    argo_workflows = data.aws_lb.argo_workflows_nlb
+  }
+}
+
+# Data source to find the NLB by tag
+data "aws_lb" "argo_workflows_nlb" {
+  tags = {
+    "kubernetes.io/service-name" = "argo-workflows/argo-workflows-external-server"
+  }
+}
+
+# Output the DNS name of the NLB
+output "load_balancers" {
+  value = local.load_balancers
+}

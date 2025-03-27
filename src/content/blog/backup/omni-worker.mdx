@@ -1,0 +1,180 @@
+---
+---
+```hcl
+data "aws_caller_identity" "current" {}
+
+module "ec2" {
+  source  = "terraform-aws-modules/ec2-instance/aws"
+
+  name = "omni-worker"
+
+  # EC2 Instance
+  ami = var.ami_id
+  instance_type = "t3.small"
+  monitoring = true
+
+  root_block_device = [{
+    # Size in GB
+    volume_size = 30 
+  }]
+
+  # Network
+
+  subnet_id              = var.subnet_ids[0]
+  vpc_security_group_ids = [aws_security_group.this.id]
+
+  # IAM Instance
+
+  create_iam_instance_profile = true
+  iam_role_description        = "IAM role for EC2 instance"
+  iam_role_policies = {
+    # AmazonEC2RoleforSSM - DONT use it, it's deprecated
+    AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    AmazonEC2ContainerRegistryFullAccess = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess"
+    SecretsManagerReadWrite = "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+    AmazonSQSFullAccess = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+    AmazonSNSFullAccess = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+    AmazonS3FullAccess = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+    CloudWatchAgentServerPolicy="arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+    AmazonElasticContainerRegistryPublicPowerUser = "arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicPowerUser"
+  }
+
+  user_data = <<-EOF
+    #!/bin/bash
+    set -euo pipefail
+
+    yum update -y
+
+    amazon-linux-extras install docker -y
+    systemctl enable --now docker
+
+    usermod -a -G docker ec2-user
+
+    export HOME=/root
+
+    cat <<-EOS > $HOME/login-ecr.sh
+    #!/bin/bash
+    set -euo pipefail
+    aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com
+    EOS
+
+    chmod +x $HOME/login-ecr.sh
+    $HOME/login-ecr.sh
+
+    # Periodically re-login to ECR
+    echo "*/30 * * * * $HOME/login-ecr.sh" | crontab -
+
+    # payload: image crawler daemon
+    docker run -d --name image_crawler \
+      --restart unless-stopped \
+      --log-driver awslogs \
+      --log-opt awslogs-region=${var.region} \
+      --log-opt awslogs-group=image_crawler \
+      --log-opt awslogs-create-group=true \
+      --log-opt awslogs-stream=omniworker \
+      -e REGION=${var.region} \
+      -e SECRETS_ARN=${aws_secretsmanager_secret_version.omni_worker_secrets.arn} \
+      ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/daemon-image-crawler:${var.image_tag}
+
+    # payload: image scanner daemon
+    docker run -d --name image_scanner \
+      --restart unless-stopped \
+      --log-driver awslogs \
+      --log-opt awslogs-region=${var.region} \
+      --log-opt awslogs-group=image_scanner \
+      --log-opt awslogs-create-group=true \
+      --log-opt awslogs-stream=omniworker \
+      -e REGION=${var.region} \
+      -e SECRETS_ARN=${aws_secretsmanager_secret_version.omni_worker_secrets.arn} \
+      -e APP_SCANNER_TRIVY_DB_REPOSITORY=${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/trivy-db \
+      -e APP_AWS_ECR_PRIVATE_BASE_REPOSITORY=${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com \
+      -e APP_VSCAN_REPORT_SNS_TOPIC=${var.vscan_report_sns_topic} \
+      -e APP_VSCAN_REPORT_BUCKET=${var.vscan_report_bucket_name} \
+      -e APP_SCAN_SBOMS_BUCKET=${var.scan_sboms_bucket_name} \
+      -e APP_SCAN_VEXES_BUCKET=${var.scan_vexes_bucket_name} \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $(which docker):/usr/bin/docker \
+      ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/daemon-image-scanner:${var.image_tag}
+
+    # payload: image patcher daemon
+    docker run -d --name image_patcher \
+      --restart unless-stopped \
+      --log-driver awslogs \
+      --log-opt awslogs-region=${var.region} \
+      --log-opt awslogs-group=image_patcher \
+      --log-opt awslogs-create-group=true \
+      --log-opt awslogs-stream=omniworker \
+      -e SECRETS_ARN=${aws_secretsmanager_secret_version.omni_worker_secrets.arn} \
+      -e AWS_REGION=${var.region} \
+      -e APP_PATCHER_APT_REPO=rootio-${var.env}-package-registry.s3.amazonaws.com/debian/ \
+      -e APP_AWS_ECR_PRIVATE_BASE_REPOSITORY=${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com \
+      -e APP_AWS_ECR_PUBLIC_BASE_REPOSITORY=${var.public_remediated_images_ecr_url} \
+      -e APP_PATCHER_SUFFIX=_rootio \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $HOME/.docker/:/root/.docker/ \
+      -v $(which docker):/usr/bin/docker \
+      -v /usr/libexec/docker/cli-plugins/docker-buildx:/usr/libexec/docker/cli-plugins/docker-buildx \
+      ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/daemon-image-patcher:${var.image_tag}
+
+    # payload: image remediation decider
+    docker run -d --name remediation_decider \
+      --restart unless-stopped \
+      --log-driver awslogs \
+      --log-opt awslogs-region=${var.region} \
+      --log-opt awslogs-group=remediation_decider \
+      --log-opt awslogs-create-group=true \
+      --log-opt awslogs-stream=omniworker \
+      -e SECRETS_ARN=${aws_secretsmanager_secret_version.omni_worker_secrets.arn} \
+      -e AWS_REGION=${var.region} \
+      -e APP_AWS_ECR_PRIVATE_BASE_REPOSITORY=${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $HOME/.docker/:/root/.docker/ \
+      -v $(which docker):/usr/bin/docker \
+      -v /usr/libexec/docker/cli-plugins/docker-buildx:/usr/libexec/docker/cli-plugins/docker-buildx \
+      ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/daemon-remediation-decider:${var.image_tag}
+
+    # payload: garbage cleaner daemon
+    docker run -d --name garbage_cleaner \
+      --restart unless-stopped \
+      --log-driver awslogs \
+      --log-opt awslogs-region=${var.region} \
+      --log-opt awslogs-group=garbage_cleaner \
+      --log-opt awslogs-create-group=true \
+      --log-opt awslogs-stream=omniworker \
+      -e SECRETS_ARN=${aws_secretsmanager_secret_version.omni_worker_secrets.arn} \
+      -e AWS_REGION=${var.region} \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $HOME/.docker/:/root/.docker/ \
+      -v $(which docker):/usr/bin/docker \
+      -v /usr/libexec/docker/cli-plugins/docker-buildx:/usr/libexec/docker/cli-plugins/docker-buildx \
+      ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/garbage-cleaner:${var.image_tag}
+
+
+    # infra: a supervisor process to watch for image updates and restart the daemon containers.
+    docker run -d --name watchtower \
+      --restart unless-stopped \
+      --log-driver awslogs \
+      --log-opt awslogs-region=${var.region} \
+      --log-opt awslogs-group=watchtower \
+      --log-opt awslogs-create-group=true \
+      --log-opt awslogs-stream=omniworker \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v $HOME/.docker/:/docker/ \
+      -e DOCKER_CONFIG=/docker \
+      containrrr/watchtower \
+      --cleanup --include-restarting --interval 60 \
+      image_crawler image_scanner image_patcher remediation_decider
+  EOF
+
+  user_data_replace_on_change = true
+
+  tags = {
+    Name = "omni-worker"
+    Environment = var.env
+  }
+
+  depends_on = [
+    aws_secretsmanager_secret_version.omni_worker_secrets,
+  ]
+}
+```
