@@ -1,0 +1,280 @@
+---
+draft: false
+title: "ArgoCD Advanced ApplicationSet: Combining Matrix Generators with YAML Elements"
+snippet: "Master ArgoCD ApplicationSets with matrix generators to dynamically deploy multiple applications across customer environments using YAML configuration files."
+cover: {
+  src: "./argocd-matrix-advanced.png",
+  alt: "ArgoCD ApplicationSet matrix generators combining YAML elements"
+}
+publishDate: "2024-12-08"
+author: "dvrkn"
+category: "ops"
+tags: ["argocd", "applicationset", "matrix-generator", "kubernetes", "gitops", "deployment", "helm"]
+lifecycle: "ops"
+lifecycleSection: "deploy"
+---
+
+When it comes to managing a growing list of deployments, nothing makes your life easier than a well-structured configuration system. In this article, we explore how ArgoCD can handle multiple deployments dynamically using ApplicationSets that combine matrix generators with YAML configuration loading. If you ever wondered how to deploy both PostgreSQL and Redis charts with specific versions into dedicated namespaces for different customers in multi tenant environment, you're in the right place.
+
+## Setting the Stage
+
+Let's imagine you have several customer environments and need to deploy two charts (PostgreSQL and Redis) to each—each with their own version and custom settings. Instead of creating a separate application definition for every case, ArgoCD's matrix generator takes care of the heavy lifting. With one neatly set up ApplicationSet, you combine two sources of data:
+
+- A static list containing information about the charts and their versions.
+- A YAML file that holds customer-specific details.
+
+This means a simple update in your configuration file automatically generates deployments for new customers or changes for existing ones.
+
+Let's consider a real-life scenario. You have an organization managing several customer environments: `org1`, `org2`, and `org3`. Each customer gets a PostgreSQL and Redis deployment, but the deployment details are managed in distinct YAML files.
+
+Imagine the following files in your repository:
+- `deploy/appset.yaml` — Contains the definition of the ApplicationSet with the matrix generators.
+- `config/customers.yaml` — Lists all your customers along with their designated namespaces.
+- `values/base/postgresql.yaml` and `values/base/redis.yaml` — Holds the common configurations for each chart.
+- `values/customers/<customer>/<chart>.yaml` — Provides customer-specific overrides.
+
+When the ApplicationSet processes these files, the steps are as follows:
+
+- The **git generator** reads `customers.yaml` and extracts the list of customers.
+- The **static list generator** identifies your charts (with respective versions).
+- The **elementsYaml generator** converts the customer list into YAML-format data that can merge with the chart information.
+- The matrix generator combines these details into a full set of application definitions, each uniquely named (combining customer names and charts).
+
+Every time there's a change in `customers.yaml` (say a new customer or a minor edit in the namespace), the ApplicationSet controller processes the updated file, creates new application objects, and syncs them to your Kubernetes cluster. This mechanism means fewer manual edits and less room for error.
+
+## What's an ApplicationSet Anyway?
+
+ArgoCD's ApplicationSet lets you generate multiple ArgoCD applications from one source. Instead of manually maintaining a cluster of repetitive definitions, ApplicationSet uses templating to splice together various data inputs. In our example, the key file is `deploy/appset.yaml`. Here, two generators are nested into a matrix:
+
+- **The Git Generator:** It reads from your Git repository (specifically, from `config/customers.yaml`) where customer data is stored.
+- **The Nested Lists:** One list holds static chart information (chart name and version), and the other uses the `elementsYaml` field. This special field converts your YAML list from the customer file into a format that the generator can work with.
+
+```yaml
+spec:
+  goTemplate: true
+  generators:
+    - matrix:
+        generators:
+          - git:
+              repoURL: https://github.com/dvrkn/argocd-matrix-advanced.git
+              revision: dev
+              files:
+                - path: config/customers.yaml
+          - matrix:
+              generators:
+                - list:
+                    elements:
+                      - chart: postgresql
+                        version: 16.2.5
+                      - chart: redis
+                        version: 20.4.0
+                - list:
+                    elementsYaml: "{{ .customers | toYaml }}"
+```
+
+```yaml
+customers:
+  - name: "org1"
+    namespace: "ns1"
+  - name: "org2"
+    namespace: "ns2"
+  - name: "org3"
+    namespace: "ns3"
+```
+
+The result? Each combination of a customer and a chart creates its own unique deployment. The ApplicationSet template even handles the naming, appending the customer name to the chart name. This way, you see application names like `org1-postgresql` or `org2-redis` emerging directly from the configuration.
+
+## How Matrix Generators Mix and Match
+
+Picture this as a nested loop: for each chart defined in your static list, the generator pairs that chart with every customer found in the YAML file. Think of it like a multiplication table where each row is a chart and every column is a customer. Their intersection forms a complete deployment description.
+
+Here's a quick breakdown of the process:
+
+1. **Loading Customer Data:**  
+   The generator uses a Git source to load the `config/customers.yaml`. This file lists your customer entries—each with a name and a namespace.
+
+    ```yaml
+    customers:
+      - name: "org1"
+        namespace: "ns1"
+      - name: "org2"
+        namespace: "ns2"
+      - name: "org3"
+        namespace: "ns3"
+    ```
+
+2. **Chart Details:**  
+   The static list provides crucial chart details such as:
+   - `chart`: The name of the chart (for example, `postgresql` or `redis`).
+   - `version`: The specific version of the chart.
+
+    ```yaml
+    elements:
+       - chart: postgresql
+         version: 16.2.5
+       - chart: redis
+         version: 20.4.0
+     ```
+
+3. **Fusion via elementsYaml:**  
+   The innovative part lies in `elementsYaml`. By using the expression `{{ .customers | toYaml }}`, the generator takes the loaded customer list and formats it as YAML. This formatted output is then processed alongside the static chart list. The matrix generator produces every possible combination from these two inputs.
+    ```yaml
+    - list:
+        elementsYaml: "{{ .customers | toYaml }}"
+    ```
+
+4. **Template Magic:**  
+   In the ApplicationSet template, placeholders such as `{{ .name }}`, `{{ .chart }}`, and `{{ .version }}` are replaced with real values. The final application definition automatically includes a reference to the correct chart repo, custom values for Helm (divided into common and customer-specific files), and the appropriate destination namespace.
+
+    ```yaml
+    template:
+      metadata:
+        name: '{{ .name }}-{{ .chart }}'
+      spec:
+        project: default
+        sources:
+          - repoURL: https://github.com/dvrkn/argocd-matrix-advanced.git
+            targetRevision: dev
+            ref: val
+          - chart: '{{ .chart }}'
+            repoURL: registry-1.docker.io/bitnamicharts
+            targetRevision: '{{ .version }}'
+            helm:
+              valueFiles:
+                - $val/values/base/{{ .chart }}.yaml
+                - $val/values/customers/{{ .name }}/{{ .chart }}.yaml
+              releaseName: '{{ .name }}'
+        destination:
+          server: https://kubernetes.default.svc
+          namespace: '{{ .namespace }}'
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true
+          managedNamespaceMetadata:
+            labels:
+              name: '{{ .name }}'
+              namespace:  '{{ .name }}'
+              chart: '{{ .chart }}'
+          syncOptions:
+            - CreateNamespace=true
+    ```
+
+
+In short, with a few lines in your template, you get a dynamic, fully automated mechanism to create and manage multiple deployments.
+
+## The Role of `elementsYaml`
+
+You might ask, "Why introduce `elementsYaml` when a static list would work just fine?" The answer is simple: it's all about reducing redundancy. With `elementsYaml`, you do not need to sprinkle customer details across multiple sections. Instead, one dedicated YAML file (in this case, `config/customers.yaml`) contains all the customer configurations. This file is loaded and parsed—converted neatly into a YAML string—and then used within the matrix generator. The result is a clean separation of customer data from the chart definitions.
+
+This design not only cuts down on repetition but also makes updating your configuration straightforward. Add a new customer to your `customers.yaml` file, and next time the ApplicationSet runs, a new pairing with every chart is automatically created. It's a classic "set it and forget it" mechanism that works on commit.
+
+## Bringing It All Together
+
+By now, the picture should be clear. ArgoCD's ApplicationSet with matrix generators and YAML-based configuration opens up a robust, automated way to deploy multiple applications without manual repetition. This method systematically pairs each customer with every chart, applying a unique configuration that blends common settings with customer-specific tweaks.
+
+When you commit changes to your repository, whether in `config/customers.yaml` or in your base values, ArgoCD updates the relevant applications automatically. This seamless coordination between Git and your Kubernetes cluster ensures that you spend less time managing configuration files and more time ensuring that your deployed applications are healthy and up to date.
+
+Finally, think about the flexibility this approach brings. Not only does it streamline deployments for say, PostgreSQL and Redis, but it also opens the door to additional enhancements—perhaps managing other application lifecycle settings or integrating with different tools down the road. The beauty of using this matrix-based strategy is that it scales closely with the natural growth of your infrastructure without introducing undue complexity.
+
+Moreover, our GitHub Actions workflow (found in [`.github/workflows/showcase.yaml`](.github/workflows/showcase.yaml)) demonstrates this process end-to-end. Each step in the workflow outputs logs that confirm the action was successful. Here's a quick breakdown with placeholders for the outputs you might see:
+
+- **Checkout Repository:**
+
+- **Start Minikube:**
+
+- **Install ArgoCD:**
+
+- **Wait for ArgoCD:**
+  > "pod/argocd-server-7487978d7-dfvrl condition met"
+
+- **Try the Cluster:**
+  > "Cluster health verified; pods are running."
+    ```shell
+    NAMESPACE     NAME                                                READY   STATUS      RESTARTS      AGE
+    argocd        argocd-application-controller-0                     1/1     Running     0             19s
+    argocd        argocd-applicationset-controller-696bdd9766-jpdhh   1/1     Running     0             19s
+    argocd        argocd-dex-server-75886cbdb9-zp6hs                  1/1     Running     0             19s
+    argocd        argocd-notifications-controller-786576875d-lk84h    1/1     Running     0             19s
+    argocd        argocd-redis-7f89747955-fplsw                       1/1     Running     0             19s
+    argocd        argocd-redis-secret-init-4lckb                      0/1     Completed   0             32s
+    argocd        argocd-repo-server-77998dd7b4-x92k8                 1/1     Running     0             19s
+    argocd        argocd-server-7487978d7-dfvrl                       1/1     Running     0             19s
+    kube-system   coredns-668d6bf9bc-24pnc                            1/1     Running     0             49s
+    kube-system   etcd-minikube                                       1/1     Running     0             55s
+    kube-system   kube-apiserver-minikube                             1/1     Running     0             55s
+    kube-system   kube-controller-manager-minikube                    1/1     Running     0             55s
+    kube-system   kube-proxy-wtxcg                                    1/1     Running     0             50s
+    kube-system   kube-scheduler-minikube                             1/1     Running     0             55s
+    kube-system   storage-provisioner                                 1/1     Running     1 (18s ago)   49s
+    ```
+- **Apply the Showcase:**
+  > "ApplicationSet applied successfully."
+    ```shell
+    applicationset.argoproj.io/argocd-matrix-advanced created
+    ```
+
+- **Sleep and Wait:**
+  > "All pods with label showcase=true are ready."
+    ```shell
+    pod/org1-postgresql-0 condition met
+    pod/org1-redis-master-0 condition met
+    pod/org2-postgresql-0 condition met
+    pod/org2-redis-master-0 condition met
+    pod/org3-postgresql-0 condition met
+    pod/org3-redis-master-0 condition met
+    ```
+
+- **Retrieve ApplicationSets and Applications:**
+  > "ApplicationSets and Applications details fetched."
+    ```shell
+    NAME              SYNC STATUS   HEALTH STATUS
+    org1-postgresql   Synced        Healthy
+    org1-redis        Synced        Healthy
+    org2-postgresql   Synced        Healthy
+    org2-redis        Synced        Healthy
+    org3-postgresql   Synced        Healthy
+    org3-redis        Synced        Healthy
+    ```
+- **Additional Checks (Pods and Namespaces):**
+  > "Pods and namespaces information correctly listed."
+    ```shell
+    NAME              STATUS   AGE    CHART   NAME     NAMESPACE
+    argocd            Active   85s            argocd   
+    default           Active   109s                    
+    kube-node-lease   Active   109s                    
+    kube-public       Active   109s                    
+    kube-system       Active   109s                    
+    ns1               Active   48s    redis   org1     org1
+    ns2               Active   48s    redis   org2     org2
+    ns3               Active   48s    redis   org3     org3
+    ```
+    ```shell
+    NAMESPACE     NAME                                                READY   STATUS    RESTARTS      AGE
+    ...
+    ns1           org1-postgresql-0                                   1/1     Running   0             43s
+    ns1           org1-redis-master-0                                 1/1     Running   0             38s
+    ns2           org2-postgresql-0                                   1/1     Running   0             41s
+    ns2           org2-redis-master-0                                 1/1     Running   0             38s
+    ns3           org3-postgresql-0                                   1/1     Running   0             42s
+    ns3           org3-redis-master-0                                 1/1     Running   0             37s
+    ```
+## A Few Practical Pointers
+
+Even though the matrix generator is powerful, a few things can help ensure smooth operation:
+
+- **File Paths and Indentation:**  
+  Make sure that file paths in the ApplicationSet configuration match your repository structure. A slight error here can lead to the generator not finding your `customers.yaml` file. Also, due to YAML being sensitive to spaces, correct indentation is a must.
+
+- **Data Schema Consistency:**  
+  Consistent key names across your YAML files are necessary. If your `customers.yaml` uses `name` for the customer identifier, confirm that your template uses the same key. Any mismatch might leave you with incomplete or unpredictable outcomes.
+
+- **Versioning and Documentation:**  
+  Using Git as your single source of truth means every change is recorded. This helps track which changes affected the deployments and makes it easier to revert if something goes wrong.
+
+- **Performance Concerns:**  
+  While combining lists works fine for a moderate number of entries, you might want to review performance when the number of customers or charts grows very large. The controller processes each combination, and an extremely large matrix could slow things down.
+
+These pointers aren't meant to complicate things but to serve as reminders that clear, well-documented configuration files are key to maintaining a healthy GitOps pipeline.
+ 
+Happy deploying! 
