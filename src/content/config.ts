@@ -12,9 +12,11 @@ const blog = defineCollection({
       alt: z.union([z.string(), image()]),
     }),
     publishDate: z.string().transform(str => new Date(str)),
-    author: z.string().default('Astroship'),
-    category: z.string(),
+    author: reference('team'),
+    category: reference('lifecycle'),
     tags: z.array(z.string()),
+    lifecycle: reference('lifecycle'),
+    lifecycleSection: reference('section'),
   }),
 });
 
