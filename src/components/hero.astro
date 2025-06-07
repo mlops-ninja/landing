@@ -14,7 +14,17 @@ import { Icon } from "astro-icon/components";
 
   <!-- Two column layout -->
   <div class="grid lg:grid-cols-10 gap-8">
-    <!-- Description column (40%) -->
+    <!-- Lifecycle SVG column (70%) -->
+    <div class="lg:col-span-5 w-full">
+      <LifecycleSvg />
+    </div>
+    
+    <!-- Gradient separator -->
+    <div class="lg:col-span-1 flex justify-center">
+      <div class="w-1 bg-gradient-to-b from-sky-300 to-fuchsia-300 rounded-full"></div>
+    </div>
+    
+    <!-- Description column (20%) -->
     <div class="lg:col-span-4">
       <div class="relative">
         <p class="text-lg text-slate-600">
@@ -34,16 +44,6 @@ import { Icon } from "astro-icon/components";
           </Link>
         </div>
       </div>
-    </div>
-    
-    <!-- Gradient separator -->
-    <div class="lg:col-span-1 flex justify-center">
-      <div class="w-1 bg-gradient-to-b from-sky-300 to-fuchsia-300 rounded-full"></div>
-    </div>
-    
-    <!-- Lifecycle SVG column (60%) -->
-    <div class="lg:col-span-5 w-full">
-      <LifecycleSvg />
     </div>
   </div>
 </main>
