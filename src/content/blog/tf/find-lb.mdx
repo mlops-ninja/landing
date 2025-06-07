@@ -1,5 +1,18 @@
-How to find Load Balancer
+---
+draft: false
+title: "How to Find Load Balancer in Terraform"
+snippet: "Terraform configuration to find AWS Load Balancer by tags"
+image:
+  src: "/hero.png"
+  alt: "AWS Load Balancer"
+publishDate: "2024-01-01"
+category: "Infrastructure"
+tags: ["terraform", "aws", "load-balancer"]
+---
 
+# How to find Load Balancer
+
+```hcl
 locals {
   load_balancers = {
     argo_workflows = data.aws_lb.argo_workflows_nlb
@@ -17,3 +30,4 @@ data "aws_lb" "argo_workflows_nlb" {
 output "load_balancers" {
   value = local.load_balancers
 }
+```

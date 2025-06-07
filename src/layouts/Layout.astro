@@ -34,6 +34,11 @@ const makeTitle = title
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" href="/logo.ico" />
     <meta name="generator" content={Astro.generator} />
+    
+    <!-- Font preloading to prevent FOUT -->
+    <link rel="preload" href="/node_modules/@fontsource-variable/podkova/files/podkova-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/node_modules/@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
 
     <!-- <link rel="preload" as="image" href={src} alt="Hero" /> -->
     <SEO
@@ -68,6 +73,28 @@ const makeTitle = title
       img {
         content-visibility: auto;
       }
+      
+      /* Prevent font jumping during load */
+      @font-face {
+        font-family: 'Podkova Variable';
+        font-display: swap;
+      }
+      
+      @font-face {
+        font-family: 'Space Grotesk Variable';
+        font-display: swap;
+      }
+      
+      @font-face {
+        font-family: 'Inter Variable';
+        font-display: swap;
+      }
+      
+      @font-face {
+        font-family: 'Bricolage Grotesque Variable';
+        font-display: swap;
+      }
+      
     </style>
   </body>
 </html>
