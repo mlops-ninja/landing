@@ -2,11 +2,10 @@
 import { SEO } from "astro-seo";
 import Footer from "@components/footer.astro";
 import Navbar from "@components/navbar/navbar.astro";
-import "@fontsource-variable/inter/index.css";
-import '@fontsource-variable/bricolage-grotesque';
-import '@fontsource-variable/fira-code';
-import '@fontsource-variable/space-grotesk';
 import '@fontsource-variable/podkova';
+
+// Import font files to get correct hashed paths
+import podkovaWoff2 from '@fontsource-variable/podkova/files/podkova-latin-wght-normal.woff2';
 
 
 export interface Props {
@@ -35,10 +34,8 @@ const makeTitle = title
     <link rel="icon" href="/logo.ico" />
     <meta name="generator" content={Astro.generator} />
     
-    <!-- Font preloading to prevent FOUT -->
-    <link rel="preload" href="/node_modules/@fontsource-variable/podkova/files/podkova-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/node_modules/@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- Font preloading with dynamic hashed paths -->
+    <link rel="preload" href={podkovaWoff2} as="font" type="font/woff2" crossorigin />
 
     <!-- <link rel="preload" as="image" href={src} alt="Hero" /> -->
     <SEO
@@ -83,21 +80,6 @@ const makeTitle = title
       /* Prevent font jumping during load */
       @font-face {
         font-family: 'Podkova Variable';
-        font-display: swap;
-      }
-      
-      @font-face {
-        font-family: 'Space Grotesk Variable';
-        font-display: swap;
-      }
-      
-      @font-face {
-        font-family: 'Inter Variable';
-        font-display: swap;
-      }
-      
-      @font-face {
-        font-family: 'Bricolage Grotesque Variable';
         font-display: swap;
       }
       
