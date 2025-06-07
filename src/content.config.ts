@@ -7,9 +7,9 @@ const blog = defineCollection({
     draft: z.boolean(),
     title: z.string(),
     snippet: z.string(),
-    image: z.object({
-      src: z.union([z.string(), image()]),
-      alt: z.union([z.string(), image()]),
+    cover: z.object({
+      src: image(),
+      alt: z.string(),
     }),
     publishDate: z.string().transform(str => new Date(str)),
     author: z.string().default('Astroship'),

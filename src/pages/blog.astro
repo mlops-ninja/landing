@@ -32,8 +32,8 @@ publishedBlogEntries.sort(function (a, b) {
               <a href={`/blog/${blogPostEntry.slug}`}>
                 <div class="grid md:grid-cols-2 gap-5 md:gap-10 items-center">
                   <Picture
-                    src={blogPostEntry.data.image.src}
-                    alt={blogPostEntry.data.image.alt}
+                    src={blogPostEntry.data.cover.src}
+                    alt={blogPostEntry.data.cover.alt}
                     sizes="(max-width: 800px) 100vw, 800px"
                     width={800}
                     height={600}
