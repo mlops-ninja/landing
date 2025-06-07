@@ -27,8 +27,9 @@ console.log(sections);
 ---
 
 <Layout title={entry.data.title}>
-  <Container>
-  <div class="mt-16 md:mt-0">
+  <main class="pt-16 pb-8 md:pt-12 md:pb-24">
+    <Container>
+    <div>
     <h2 class="text-4xl lg:text-5xl font-bold lg:tracking-tight">
       {entry.data.title}
     </h2>
@@ -54,5 +55,6 @@ console.log(sections);
       ))
     }
     </div>
-  </Container>
+    </Container>
+  </main>
 </Layout>
