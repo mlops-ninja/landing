@@ -1,0 +1,176 @@
+---
+draft: false
+title: "OCI2Git: A Simple Tool for Converting Container Images to Git Repositories"
+snippet: "Have you ever wanted to track the history and evolution of a Docker image using Git workflows? OCI2Git converts container layers into Git commits for powerful analysis."
+cover: {
+  src: "./docker-in-mlops.png",
+  alt: "OCI2Git converting container images to Git repositories"
+}
+publishDate: "2025-06-08"
+author: "virviil"
+category: "ops"
+tags: ["docker", "containers", "git", "security", "analysis", "oci"]
+lifecycle: "ops"
+lifecycleSection: "review"
+---
+
+Have you ever wanted to know how a Docker image evolved over time, or track exactly what changed between layers using familiar Git tools? Maybe you want to audit container contents or analyze layer composition using version control workflows?
+
+To do that, you need to understand things like layer history, file changes between layers, and the complete evolution of your container filesystem.
+
+Sounds like hard work, doesn't it?
+
+With the help of a tool called OCI2Git, the process is actually quite simple.
+
+OCI2Git includes the following features:
+
+- **Layer-to-commit conversion** - Each container layer becomes a Git commit
+- **Complete filesystem extraction** - Full container contents extracted to a Git repository  
+- **Metadata preservation** - All image metadata saved as documentation
+- **Git workflow integration** - Use standard Git tools for container analysis
+- **Security auditing capabilities** - Track file origins and changes across layers
+
+That's some fairly important functionality to have at your fingertips, especially for a developer trying to understand container composition and security professionals auditing image contents. You certainly want to know exactly what's in your containers and when it was added, and OCI2Git is a great way to accomplish that using tools you already know.
+
+Let's get OCI2Git installed.
+
+## What You'll Need
+
+OCI2Git can be installed on Ubuntu, Red Hat Enterprise Linux, Arch-based distributions, as well as MacOS and Windows. I'm going to demonstrate the process on Ubuntu 22.04. If you use a different operating system, you'll need to alter the installation process accordingly. For MacOS and other platforms, OCI2Git can be installed via Cargo (Rust's package manager).
+
+## Installing Docker
+
+To examine an image with OCI2Git, you must be able to first pull it with Docker (unless you plan on working with exported image tarballs). Here's how you can install the Docker runtime engine on Ubuntu 22.04.
+
+First, you must download and install the official Docker GPG key (so you can install the software). To do this, log into your Ubuntu instance, open a terminal window and issue the command:
+
+```bash
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+```
+
+With the GPG key added, it's time to create the proper Docker repository, which can be done with the following command:
+
+```bash
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+```
+
+Now that the repository is correctly added, we'll install a few dependencies with the command:
+
+```bash
+sudo apt-get install apt-transport-https ca-certificates curl gnupg lsb-release -y
+```
+
+Before we can install Docker, we must now update apt with:
+
+```bash
+sudo apt-get update
+```
+
+Install Docker with the command:
+
+```bash
+sudo apt-get install docker-ce docker-ce-cli containerd.io -y
+```
+
+In order to allow your user to work with Docker (without having to employ sudo, which can be a security issue), you must add the user to the docker group with the command:
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+Log out and log back in so the changes take effect.
+
+## Installing OCI2Git
+
+It's now time to install OCI2Git. On Ubuntu, this is done using Rust's Cargo package manager. First, you'll need to install Rust if you haven't already:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+```
+
+Now you can install OCI2Git directly from Crates.io with:
+
+```bash
+cargo install oci2git
+```
+
+Alternatively, you can install from source:
+
+```bash
+git clone https://github.com/virviil/oci2git.git
+cd oci2git
+cargo install --path .
+```
+
+When the installation completes, you're ready to test the application.
+
+## Using OCI2Git
+
+With both OCI2Git and Docker installed, OCI2Git is capable not only of converting a container image but also of pulling the image as well.
+
+Let's say you want to examine the latest Alpine Docker image. The command for that would be:
+
+```bash
+oci2git -o ./alpine-repo alpine:latest
+```
+
+Once the image is pulled and converted, OCI2Git will create a Git repository in the `./alpine-repo` directory, with each container layer represented as a Git commit.
+
+You can then navigate into the repository and explore it using standard Git tools:
+
+```bash
+cd alpine-repo
+git log --oneline
+```
+
+This will show you the commit history, where each commit represents a container layer. You can examine what changed in any layer with:
+
+```bash
+git show <commit-hash>
+```
+
+To examine the complete filesystem at any point, simply browse the `rootfs/` directory:
+
+```bash
+ls -la rootfs/
+```
+
+Let's say you want to examine the MongoDB image. Do that with the command:
+
+```bash
+oci2git -o ./mongo-repo mongo:latest
+```
+
+Given this is a far more complicated image, you'll find multiple commits in the Git history. You can navigate between the layer changes using standard Git commands. To see what files were modified between layers:
+
+```bash
+cd mongo-repo
+git log --stat
+```
+
+You can also examine the complete metadata for the image:
+
+```bash
+cat Image.md
+```
+
+If you want to see exactly what changed in the filesystem between any two layers, you can use Git's diff functionality:
+
+```bash
+git diff HEAD~3 HEAD~1
+```
+
+You can also track the history of specific files across all layers:
+
+```bash
+git log --follow -- rootfs/etc/passwd
+```
+
+For security auditing, you can search for specific types of files or changes:
+
+```bash
+git log -p --all | grep -E "chmod.*[+]x"
+```
+
+And that's pretty much the basics of using the OCI2Git tool to convert and analyze any Docker image using Git workflows. Hopefully, this command line application will help you better understand container composition and track changes over time using tools you're already familiar with.
