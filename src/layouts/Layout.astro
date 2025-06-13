@@ -10,16 +10,16 @@ import podkovaWoff2 from '@fontsource-variable/podkova/files/podkova-latin-wght-
 
 export interface Props {
   title: string;
+  description?: string;
+  image?: string;
 }
+
+const { title, description, image } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
 
-const resolvedImageWithDomain = new URL(
-  "/opengraph.jpg",
-  Astro.site
-).toString();
-
-const { title } = Astro.props;
+const defaultImage = new URL("/opengraph.png", Astro.site).toString();
+const resolvedImageWithDomain = image ? new URL(image, Astro.site).toString() : defaultImage;
 
 const makeTitle = title
   ? title + " | " + "MLOps.Ninja"
@@ -40,22 +40,22 @@ const makeTitle = title
     <!-- <link rel="preload" as="image" href={src} alt="Hero" /> -->
     <SEO
       title={makeTitle}
-      description="Astroship is a starter template for Astro built with TailwindCSS."
+      description={description || "MLOps.Ninja - modern era of MLOps"}
       canonical={canonicalURL}
       twitter={{
-        creator: "@surjithctly",
-        site: "@web3templates",
+        creator: "@virviil",
+        site: "@mlops_ninja",
         card: "summary_large_image",
       }}
       openGraph={{
         basic: {
           url: canonicalURL,
           type: "website",
-          title: `Astroship - Starter Template for Astro`,
+          title: makeTitle,
           image: resolvedImageWithDomain,
         },
         image: {
-          alt: "Astroship Homepage Screenshot",
+          alt: "MLOps.Ninja",
         },
       }}
     />
