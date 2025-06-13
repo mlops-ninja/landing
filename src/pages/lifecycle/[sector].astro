@@ -4,6 +4,7 @@ import Layout from "@layouts/Layout.astro";
 import Container from "@components/container.astro";
 import { getEntries } from "astro:content";
 import { Icon } from "astro-icon/components";
+import BlogPostCardList from "@components/BlogPostCardList.astro";
 
 // Generate a new path for every collection entry
 export async function getStaticPaths() {
@@ -11,15 +12,24 @@ export async function getStaticPaths() {
 
   return Promise.all(lifecycleEntries.map(async (entry) => { 
     const sections = await getEntries(entry.data.sections);
+    
+    // Get all published blog posts for this lifecycle
+    const blogPosts = await getCollection("blog", ({ data }) => {
+      return !data.draft && data.lifecycle === entry.slug && data.publishDate < new Date();
+    });
+    
+    // Sort blog posts by publication date
+    blogPosts.sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+    
     return { 
       params: { sector: entry.slug },
-      props: { entry, sections },
+      props: { entry, sections, blogPosts },
     }
   }));
 }
 
-// Get the entry directly from the prop on render
-const { entry, sections } = Astro.props;
+// Get the entry directly from the prop on render  
+const { entry, sections, blogPosts } = Astro.props;
 const { Content } = await entry.render();
 
 console.log(entry);
@@ -55,6 +65,15 @@ console.log(sections);
       ))
     }
     </div>
+
+    {blogPosts && blogPosts.length > 0 && (
+      <div class="mt-24">
+        <h2 class="text-3xl lg:text-4xl font-bold lg:tracking-tight mb-8">
+          Related Articles
+        </h2>
+        <BlogPostCardList blogPosts={blogPosts} showLifecycleSection={true} />
+      </div>
+    )}
     </Container>
   </main>
 </Layout>

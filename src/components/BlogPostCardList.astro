@@ -1,0 +1,20 @@
+---
+import BlogPostCard from "./BlogPostCard.astro";
+
+interface Props {
+  blogPosts: any[];
+  showLifecycleSection?: boolean;
+}
+
+const { blogPosts, showLifecycleSection = true } = Astro.props;
+---
+
+<ul class="grid gap-16 max-w-4xl mx-auto">
+  {blogPosts.map((blogPost, index) => (
+    <BlogPostCard 
+      blogPost={blogPost} 
+      index={index} 
+      showLifecycleSection={showLifecycleSection}
+    />
+  ))}
+</ul>

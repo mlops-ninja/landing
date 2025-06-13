@@ -1,5 +1,5 @@
 ---
-draft: true
+draft: false
 title: "You Don’t Need `venv` in Docker"
 snippet: "Skip the redundancy: Docker containers already provide isolation, so virtual environments inside them add unnecessary complexity and bloat."
 cover: {

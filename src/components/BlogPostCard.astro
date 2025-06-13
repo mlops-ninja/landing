@@ -1,0 +1,51 @@
+---
+import { Picture } from "astro:assets";
+
+interface Props {
+  blogPost: any;
+  index: number;
+  showLifecycleSection?: boolean;
+}
+
+const { blogPost, index, showLifecycleSection = true } = Astro.props;
+const filename = blogPost.slug.split('/').pop() || blogPost.slug;
+const href = `/blog/${blogPost.data.lifecycle}/${blogPost.data.lifecycleSection}/${filename}`;
+---
+
+<li>
+  <a href={href}>
+    <div class="grid md:grid-cols-2 gap-5 md:gap-10 items-center">
+      <Picture
+        src={blogPost.data.cover.src}
+        alt={blogPost.data.cover.alt}
+        sizes="(max-width: 800px) 100vw, 800px"
+        width={800}
+        height={600}
+        loading={index <= 2 ? "eager" : "lazy"}
+        decoding={index <= 2 ? "sync" : "async"}
+        class="w-full rounded-md object-cover object-center bg-white"
+      />
+      <div>
+        <span class="text-blue-400 uppercase tracking-wider text-sm font-medium">
+          {showLifecycleSection ? blogPost.data.lifecycleSection : `${blogPost.data.lifecycle} / ${blogPost.data.lifecycleSection}`}
+        </span>
+
+        <h2 class="text-3xl font-semibold leading-snug tracking-tight mt-1">
+          {blogPost.data.title}
+        </h2>
+
+        <div class="flex gap-2 mt-3">
+          <span class="text-gray-400">
+            {blogPost.data.author}
+          </span>
+          <span class="text-gray-400">• </span>
+          <time
+            class="text-gray-400"
+            datetime={blogPost.data.publishDate.toISOString()}>
+            {blogPost.data.publishDate.toDateString()}
+          </time>
+        </div>
+      </div>
+    </div>
+  </a>
+</li>
