@@ -8,4 +8,13 @@ import icon from "astro-icon";
 export default defineConfig({
   site: "https://mlops.ninja",
   integrations: [tailwind(), mdx(), sitemap(), icon()],
+  vite: {
+    server: {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+      }
+    }
+  }
 });
