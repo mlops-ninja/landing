@@ -165,3 +165,13 @@ button {
   padding: 0.625rem 1.5rem !important;
   transition: all 150ms ease-in-out !important;
 }
+
+/* Fix reaction button height */
+.gsc-reactions button,
+.gsc-social-reaction-summary-item {
+  padding: 0.5rem 0.75rem !important;
+  min-height: 2.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
