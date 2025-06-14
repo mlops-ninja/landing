@@ -1,0 +1,53 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "@layouts/Layout.astro";
+import Container from "@components/container.astro";
+import Sectionhead from "@components/sectionhead.astro";
+import TeamMemberProfile from "@components/TeamMemberProfile.astro";
+import BlogPostCardList from "@components/BlogPostCardList.astro";
+
+export async function getStaticPaths() {
+  const teamMembers = await getCollection("team");
+  
+  return teamMembers.map((member) => ({
+    params: { slug: member.slug },
+    props: { member }
+  }));
+}
+
+const { member } = Astro.props;
+const { Content } = await member.render();
+
+const allBlogPosts = await getCollection("blog", ({ data }) => {
+  return !data.draft && data.publishDate < new Date();
+});
+const memberBlogPosts = allBlogPosts.filter(post => post.data.author === member.slug);
+
+memberBlogPosts.sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+---
+
+<Layout title={member.data.name}>
+  <Container>
+    <div class="mx-auto max-w-4xl">
+      <Sectionhead>
+        <Fragment slot="title">Our Team</Fragment>
+        <Fragment slot="desc"><br></Fragment>
+      </Sectionhead>
+
+      <div class="mb-16">
+        <TeamMemberProfile member={member} />
+      </div>
+
+      {memberBlogPosts.length > 0 && (
+        <div class="mb-16">
+          <h2 class="text-3xl font-bold text-gray-800 mb-8">Articles</h2>
+          <BlogPostCardList blogPosts={memberBlogPosts} showLifecycleSection={false} />
+        </div>
+      )}
+
+      <div class="prose prose-lg max-w-none">
+        <Content />
+      </div>
+    </div>
+  </Container>
+</Layout>
